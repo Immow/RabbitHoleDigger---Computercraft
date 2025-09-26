@@ -1,0 +1,144 @@
+-- Turtle rabbit hole dig program v1.2 by Immow --
+
+-- Global Variables
+print("Specify amount of rabbit holes to dig")
+print("Put an enderchest in bottom right inventory slot for unloading")
+local h = read()
+print(h)
+local count = 0
+
+local materials = {
+	["minecraft:stone"] = true,
+	["minecraft:grass"] = true,
+	["minecraft:gravel"] = true,
+	["minecraft:dirt"] = true,
+	["minecraft:sand"] = true,
+	["minecraft:sandstone"] = true,
+	["chissl:basalt2"] = true,
+}
+
+-- Unload --
+function unload()
+	turtle.digUp()
+	turtle.select(16)
+	turtle.placeUp()
+	for i = 1, 15 do
+		turtle.select(i)
+		turtle.dropUp()
+	end
+	turtle.select(16)
+	turtle.digUp()
+	turtle.select(1)
+end
+
+-- Horsejump movement --
+function horseJump()
+	turtle.dig()
+	turtle.forward()
+	turtle.dig()
+	turtle.forward()
+	turtle.turnLeft()
+	turtle.dig()
+	turtle.forward()
+	turtle.turnRight()
+end
+
+-- List of what not to mine --
+function dig()
+	local block, data = turtle.inspect()
+
+	if block == false then
+		return
+	end
+
+	if not materials[data.name] then
+		turtle.dig()
+		if turtle.getItemCount(15) ~= 0 then
+			unload()
+		end
+	end
+end
+
+-- Fuel Check --
+function refuel()
+	while true do
+		if turtle.getFuelLevel() < 500 then
+			term.clear()
+			turtle.select(1)
+			turtle.refuel()
+			term.setCursorPos(1, 3)
+			print("fuel level =", turtle.getFuelLevel())
+			print("Please insert fuel in slot 1")
+			print("Hold CTRL T to terminate program")
+			print("Sleeping for 5 seconds")
+			os.sleep(5)
+		else
+			term.clear()
+			term.setCursorPos(1, 1)
+			break
+		end
+	end
+end
+
+-- ShaftDown --
+function shaftDown()
+	while true do
+		-- Check for block
+		local block, data = turtle.inspectDown()
+		-- Check if we are at bedrock, if so stop shaftDown
+		if block and data.name == "minecraft:bedrock" then
+			break
+		else
+			turtle.digDown()
+			-- Move down, if succes then adjust count and look/dig around
+			if turtle.down() then
+				count = count - 1
+				-- print(count)
+				for _ = 1, 4 do
+					dig()
+					turtle.turnRight()
+				end
+			end
+			if count == -2 then -- cover hole so I dont keep falling down
+				turtle.select(1)
+				turtle.placeUp()
+			end
+		end
+	end
+end
+
+-- ShaftUp --
+function shaftUp()
+	while true do
+		-- Dig up
+		turtle.digUp()
+		-- Move up, if success then adjust count and look/dig around
+		if turtle.up() then
+			count = count + 1
+			for _ = 1, 4 do
+				dig()
+				turtle.turnRight()
+			end
+		end
+		if count >= 0 then
+			for i = 1, 15 do
+				turtle.select(i)
+				if turtle.getItemDetail(i) ~= nil and materials[turtle.getItemDetail(i).name] == "minecraft:stone" then
+					turtle.placeDown(i)
+					break
+				end
+			end
+			break
+		end
+	end
+end
+
+-- Execution of functions --
+refuel()
+for _ = 1, h do
+	shaftDown()
+	horseJump()
+	shaftUp()
+	horseJump()
+	unload()
+end

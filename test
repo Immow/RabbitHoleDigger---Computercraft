@@ -1,0 +1,13 @@
+local has_block, data = turtle.inspect()
+if has_block then
+	print(textutils.serialise(data))
+	-- {
+	--   name = "minecraft:oak_log",
+	--   state = { axis = "x" },
+	--   tags = { ["minecraft:logs"] = true, ... },
+	-- }
+else
+	print("No block in front of the turtle")
+end
+
+-- print(turtle.getItemDetail(1).name)
