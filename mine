@@ -1,12 +1,13 @@
--- Turtle rabbit hole dig program v1.2 by Immow --
+-- Turtle rabbit hole dig program v1.3 by Immow (optimized by Koen's AI buddy) --
 
 -- Global Variables
 print("Specify amount of rabbit holes to dig")
 print("Put an enderchest in bottom right inventory slot for unloading")
-local h = read()
-print(h)
+local h = tonumber(read()) or 0
+print("Holes to dig:", h)
 local count = 0
 
+-- List of blocks we want to ignore (do not mine)
 local materials = {
 	["minecraft:stone"] = true,
 	["minecraft:grass"] = true,
@@ -17,123 +18,114 @@ local materials = {
 	["chissl:basalt2"] = true,
 }
 
--- Unload --
-function unload()
+-- Unload inventory into an ender chest (slot 16 reserved)
+local function unload()
 	turtle.digUp()
 	turtle.select(16)
-	turtle.placeUp()
-	for i = 1, 15 do
-		turtle.select(i)
-		turtle.dropUp()
+	if turtle.placeUp() then
+		for i = 1, 15 do
+			turtle.select(i)
+			turtle.dropUp()
+		end
+		turtle.select(16)
+		turtle.digUp()
+	else
+		print("Failed to place ender chest for unloading!")
 	end
-	turtle.select(16)
-	turtle.digUp()
 	turtle.select(1)
 end
 
--- Horsejump movement --
-function horseJump()
-	turtle.dig()
-	turtle.forward()
-	turtle.dig()
-	turtle.forward()
+-- Movement pattern for "horse jump" step
+local function horseJump()
+	forwardAndDig()
+	forwardAndDig()
 	turtle.turnLeft()
-	turtle.dig()
-	turtle.forward()
+	forwardAndDig()
 	turtle.turnRight()
 end
 
--- List of what not to mine --
-function dig()
-	local block, data = turtle.inspect()
-
-	if block == false then
-		return
-	end
-
-	if not materials[data.name] then
+-- Helper: dig & move forward
+function forwardAndDig()
+	while not turtle.forward() do
 		turtle.dig()
-		if turtle.getItemCount(15) ~= 0 then
+		os.sleep(0.2)
+	end
+end
+
+-- Place block under turtle if we moved down
+local function placeBlock()
+	if count < -1 then
+		for i = 1, 15 do
+			local detail = turtle.getItemDetail(i)
+			if detail and materials[detail.name] then
+				turtle.select(i)
+				turtle.placeDown()
+				break
+			end
+		end
+	end
+end
+
+-- Dig only blocks not in materials list
+local function dig()
+	local success, data = turtle.inspect()
+	if success and not materials[data.name] then
+		turtle.dig()
+		if turtle.getItemCount(15) > 0 then
 			unload()
 		end
 	end
 end
 
--- Fuel Check --
-function refuel()
+-- Fuel management
+local function refuel()
+	while turtle.getFuelLevel() < 500 do
+		term.clear()
+		term.setCursorPos(1, 1)
+		print("Fuel level =", turtle.getFuelLevel())
+		print("Please insert fuel in slot 1")
+		print("Hold CTRL+T to terminate")
+		os.sleep(5)
+		turtle.select(1)
+		turtle.refuel()
+	end
+end
+
+-- Dig shaft downward until bedrock
+local function shaftDown()
 	while true do
-		if turtle.getFuelLevel() < 500 then
-			term.clear()
-			turtle.select(1)
-			turtle.refuel()
-			term.setCursorPos(1, 3)
-			print("fuel level =", turtle.getFuelLevel())
-			print("Please insert fuel in slot 1")
-			print("Hold CTRL T to terminate program")
-			print("Sleeping for 5 seconds")
-			os.sleep(5)
-		else
-			term.clear()
-			term.setCursorPos(1, 1)
+		local success, data = turtle.inspectDown()
+		if success and data.name == "minecraft:bedrock" then
 			break
+		end
+		turtle.digDown()
+		if turtle.down() then
+			count = count - 1
+			for _ = 1, 4 do
+				dig()
+				turtle.turnRight()
+			end
+			placeBlock()
 		end
 	end
 end
 
--- ShaftDown --
-function shaftDown()
-	while true do
-		-- Check for block
-		local block, data = turtle.inspectDown()
-		-- Check if we are at bedrock, if so stop shaftDown
-		if block and data.name == "minecraft:bedrock" then
-			break
-		else
-			turtle.digDown()
-			-- Move down, if succes then adjust count and look/dig around
-			if turtle.down() then
-				count = count - 1
-				-- print(count)
-				for _ = 1, 4 do
-					dig()
-					turtle.turnRight()
-				end
-			end
-			if count == -2 then -- cover hole so I dont keep falling down
-				turtle.select(1)
-				turtle.placeUp()
-			end
-		end
-	end
-end
-
--- ShaftUp --
-function shaftUp()
-	while true do
-		-- Dig up
+-- Dig shaft upward until reaching surface
+local function shaftUp()
+	while count < 0 do
 		turtle.digUp()
-		-- Move up, if success then adjust count and look/dig around
 		if turtle.up() then
 			count = count + 1
 			for _ = 1, 4 do
 				dig()
 				turtle.turnRight()
 			end
-		end
-		if count >= 0 then
-			for i = 1, 15 do
-				turtle.select(i)
-				if turtle.getItemDetail(i) ~= nil and materials[turtle.getItemDetail(i).name] == "minecraft:stone" then
-					turtle.placeDown(i)
-					break
-				end
-			end
-			break
+			placeBlock()
 		end
 	end
 end
 
--- Execution of functions --
+-- Main Execution
 refuel()
 for _ = 1, h do
 	shaftDown()
