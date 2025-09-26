@@ -53,13 +53,17 @@ function forwardAndDig()
 end
 
 -- Place block under turtle if we moved down
-local function placeBlock()
+local function placeBlock(direction)
 	if count < -1 then
 		for i = 1, 15 do
 			local detail = turtle.getItemDetail(i)
 			if detail and materials[detail.name] then
 				turtle.select(i)
-				turtle.placeDown()
+				if direction == "down" then
+					turtle.placeUp() -- replace block above when digging down
+				else
+					turtle.placeDown() -- replace block below when digging up
+				end
 				break
 			end
 		end
@@ -91,7 +95,7 @@ local function refuel()
 	end
 end
 
--- Dig shaft downward until bedrock
+-- Dig downward --
 local function shaftDown()
 	while true do
 		local success, data = turtle.inspectDown()
@@ -105,12 +109,12 @@ local function shaftDown()
 				dig()
 				turtle.turnRight()
 			end
-			placeBlock()
+			placeBlock("down")
 		end
 	end
 end
 
--- Dig shaft upward until reaching surface
+-- Dig upward --
 local function shaftUp()
 	while count < 0 do
 		turtle.digUp()
@@ -120,10 +124,11 @@ local function shaftUp()
 				dig()
 				turtle.turnRight()
 			end
-			placeBlock()
+			placeBlock("up")
 		end
 	end
 end
+
 
 -- Main Execution
 refuel()
